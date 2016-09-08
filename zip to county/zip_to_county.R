@@ -49,6 +49,8 @@ zip.to.zcta <- data.table(read.xlsx2("./zip_to_zcta_tmp.xlsx",
                                      sheetIndex=1, header=T,
                                      colClasses="character"))
 
+system("rm zip_to_zcta_tmp.xlsx")
+
 zip.to.zcta <- zip.to.zcta[ZIPType=="ZIP Code Area",
                            list(ZCTA = as.integer(as.character(ZCTA_USE)),ZIP=as.character(ZIP))]
 
