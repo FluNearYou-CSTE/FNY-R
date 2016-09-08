@@ -1,2 +1,2 @@
 # R
-R scripts for working with FluNearYou data
+**R** scripts for working with FluNearYou data
