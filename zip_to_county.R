@@ -1,7 +1,7 @@
 #! /usr/bin/env Rscript
 
 ################
-## ZIP -> County, assign zip to
+## ZIP -> County
 ################
 
 library(readr)
@@ -12,6 +12,8 @@ library(xlsx)
 library(httr)
 library(data.table)
 
+
+## Need county fips codes to join after population filtering
 ## https://www.census.gov/geo/reference/codes/cou.html
 state_county_fips <- getURL("http://www2.census.gov/geo/docs/reference/codes/files/national_county.txt")
 state.county.fips <- data.table(read.csv(textConnection(state_county_fips),header=FALSE))
@@ -19,8 +21,9 @@ state.county.fips <- data.table(read.csv(textConnection(state_county_fips),heade
 ## headers dropped for unknown reason, assign
 colnames(state.county.fips) <- c("STATE","STATEFP","COUNTYFP","COUNTYNAME","CLASSFP")
 
-## https://www.google.com/url?q=http://www2.census.gov/geo/pdfs/maps-data/data/rel/explanation_zcta_county_rel_10.pdf
-# zpoppct - percent of zcta in given county (GEOID)
+## Pull ZCTA populations, want to choose county based on largest ZCTA population
+## #https://www.google.com/url?q=http://www2.census.gov/geo/pdfs/maps-data/data/rel/explanation_zcta_county_rel_10.pdf
+
 ZC_to_county_TXT <- getURL("http://www2.census.gov/geo/docs/maps-data/data/rel/zcta_county_rel_10.txt")
 zcta.county.pop <- data.table(read.csv(textConnection(ZC_to_county_TXT),header=TRUE))
 #zcta.to.county <- data.table(read.csv('./zcta_county_rel_10.csv'))
