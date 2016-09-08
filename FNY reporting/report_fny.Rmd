@@ -1,0 +1,212 @@
+---
+title: "Influenza report"
+author: "Team Exploration_Breakout"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: html_document
+---
+```{r echo=FALSE, warning=FALSE, message=F}
+
+library(ggplot2)
+library(dplyr)
+
+rm(list=ls())
+data(zip.regions)
+
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+# Note: Code above will require installing devtools package and installing and loading choroplethrZip package. To do that use the lines # below:
+library(devtools)
+#install_github('arilamstein/choroplethrZip@v1.3.0')
+library(choroplethrZip)
+
+#### houston zips
+#FNY.zips <- c(77002:77051, 77053:77096, 77098, 77099, 77201, 77336, 77338, 77339, 77345,
+#                 77346,77357,77365,77373,77375,77377,77379,77386, 77388, 77396, 77401, 77406,
+#                 77407,77429,77433,77447,77449,77450,77477,77478,77484,77489,77493,77494, 77498,  
+#                 77503,77504,77506, 77520,77530,77532,77536,77546,77547,77571,77587,77598)
+
+user.input <- read.csv("C:/Users/user/Dropbox/R code/FNY report/r shiny/test name_texas - harris_request_report_1443557460.csv")
+
+zip.regions <-read.csv("C:/Users/user/Dropbox/R code/FNY report/r shiny/zip_regions.csv")
+
+FNY.zips <- as.integer(user.input$zipcode)
+FNY.name <- user.input$name[1]
+FNY.ph <- user.input$phone[1]
+FNY.email <- user.input$email[1]
+
+
+
+
+FNY <- read.csv("C:/Users/user/Dropbox/EpiHack Analytics FNY Data/FNY_ZIPDATA_from_2012-08-27_to_2015-09-27.csv")
+
+
+for (i in 1:2){
+ FNY$zips <- paste(rep(0,nrow(FNY)),FNY$zip, sep = "")
+}
+
+
+substrRight <- function(x, n){
+ substr(x, nchar(x)-n+1, nchar(x))
+}
+FNY$zips <- substrRight(FNY$zips, 5)
+FNY <- subset(FNY, FNY$zips %in% FNY.zips)
+
+FNY$symptomsum <- rowSums(FNY[c('fever', 'cough', 'sore_throat', 'chills', 
+                                               'fatigue', 'nausea', 'diarrhea', 'bodyache', 
+                                               'headache')])
+
+df.fny <- aggregate(cbind(ili, participants,users, household, 
+                          no_symptoms, nausea, symptomsum,
+                          diarrhea) ~ week_of, data = FNY, FUN = sum)
+df.fny <- df.fny[df.fny$week_of != "",]
+df.fny$week_of <- as.Date(df.fny$week_of, "%Y-%m-%d")
+df.fny <- df.fny[order(df.fny$week_of),]
+df.fny <- df.fny[df.fny$week_of > "2013-07-01",]
+rownames(df.fny) <- 1:nrow(df.fny)
+
+df.fny$prop.participants <- df.fny$ili/df.fny$participants
+df.fny$prop.users <- df.fny$ili/df.fny$users
+df.fny$prop.users[is.nan(df.fny$prop.users) == T] <- 0
+
+
+n <- nrow(df.fny)
+
+latest.week <- df.fny$week_of[n]
+latest.ili  <- df.fny$ili[n]
+latest.participant <- df.fny$participants[n]
+latest.ili.prop <- round(latest.ili/latest.participant,3)
+
+prev.week <- df.fny$week_of[n-1]
+prev.ili <- df.fny$ili[n-1]
+prev.participant <- df.fny$participants[n-1]
+
+df.fny$symptomrate <- df.fny$symptomsum/df.fny$participants
+rownames(df.fny) <- 1:nrow(df.fny)
+
+df.fny <- df.fny[complete.cases(df.fny),]
+df.fny$proportion <- df.fny$ili/df.fny$participants
+df.fny$Season <- format(df.fny$week_of, '%Y')
+
+comp.lw <- if (latest.ili > prev.ili) {"an increase over"
+    } else if (latest.ili < prev.ili) {"a decrease from"
+    } else  "the same as"
+
+max.ili.prop <- max(df.fny$proportion)
+
+county.fips <- zip.regions$county.fips.numeric[zip.regions$region == FNY.zips[1]]
+
+df.fny2 <- aggregate(cbind(participants) ~ zip, data = FNY, FUN = sum)
+names(df.fny2)<-c("region","value")
+p4<- zip_choropleth(df.fny2,
+              county_zoom=c(county.fips), 
+              title="Houston City - Count of FNY Participants per ZIP code",
+              legend="Range of FNY Participants in ZIP code") # The value in county_zoom is a FIPS code for Harris County
+
+
+
+```
+
+Dear citizens of **`r FNY.name`**, for the week of **`r latest.week`** we had **`r latest.ili`** out of **`r latest.participant`** report being ill with influenza like illness (ILI). This is **`r comp.lw`** last week. We are grateful for each person who is contributing to our efforts to understand how influenza affects our community. If you wish to participate as a citizen scientist please sign up at FluNearYou.com or contact **`r FNY.name`** health department at **`r FNY.ph`**. 
+
+
+**Figure 1** shows the proportion of FNY users within **`r FNY.name`** who reported having ILI symptoms. Currently we see **`r latest.ili.prop*100`%** of reporters with ILI-symptoms.
+
+```{r echo = F}
+
+p1 <- ggplot(df.fny, aes(x=week_of, y=proportion, color=Season)) + 
+        geom_line() + 
+        theme_minimal() +
+        xlab('') + 
+        ylim(0, max.ili.prop*1.5) +
+        ggtitle('Proportion of participants reporting ILI') + ylab('Proportion')
+
+print(p1)
+```
+
+
+**Figure 2** shows the average number of symptoms reported per participant. This past week saw an average of **`r round(df.fny$symptomrate[n],2)`**. This value may suggest the severity of the current status of influenza.
+
+```{r echo = F}
+p2 <-  ggplot(df.fny, aes(x=week_of, y=symptomrate, color=Season)) + 
+        geom_line() + 
+        theme_minimal() +
+        xlab('') + 
+        ylab('Symptoms rate') + 
+        ggtitle('Symptoms reported per participant')
+
+print(p2)
+```
+
+This past week we had **`r latest.participant`** reporters. Our goal is to reach a weekly average of 300. 
+
+```{r echo=F}
+p3 <- ggplot(df.fny, aes(x = week_of, y = participants, color = Season)) +
+        geom_line() +
+        theme_minimal() + 
+        xlab("Week") +
+        ylab("Weekly participation") +
+        ylim(0, max(df.fny$participants*1.1)) + 
+        ggtitle("Weekly participants who reported to FNY")
+
+print(p3)
+
+```
+
+**Figure 4** is a histogram of symptom rates.
+
+```{r echo = F, warning = FALSE, message = FALSE}
+ p4 <- ggplot(df.fny, aes(symptomrate)) + 
+  geom_histogram(colour = "lightblue", fill = "lightblue") + theme_minimal() + 
+  ylab('Count') + xlab('Symptoms') + ggtitle('Histogram of symptoms per participant')
+
+print(p4)
+
+```
+
+**Figure 5** is a map of participation by ZIP code.
+
+```{r echo = F, warning = FALSE, message = FALSE}
+p5<- zip_choropleth(df.fny2,
+              county_zoom=c(county.fips), 
+              title="Houston City - Count of FNY Participants per ZIP code",
+              legend="Range of FNY Participants in ZIP code") # The value in county_zoom is a FIPS code for Harris County
+
+print(p5)
+
+```
+
